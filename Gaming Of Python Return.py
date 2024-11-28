@@ -2,6 +2,7 @@ import pygame as pg
 from sys import exit
 from random import randint, uniform
 import cv2
+from pygame.sprite import LayeredUpdates
 
 class Ship(pg.sprite.Sprite):
     def __init__(self,groups):
@@ -57,6 +58,7 @@ class Ship(pg.sprite.Sprite):
             self.can_shoot = False
             self.shoot_time = pg.time.get_ticks()
             Laser(laser_group,self.rect.midtop)
+            all_sprites.add(Laser(laser_group,self.rect.midtop), layer=1)
             laser_sfx.play()
 
     def laser_timer(self):
@@ -257,6 +259,7 @@ class End(pg.sprite.Sprite):
     def remove(self):
         self.kill()
 
+#SETUP
 pg.init()
 pg.mixer.init()
 width , height = 900,700
@@ -264,41 +267,54 @@ org_screen = pg.display.set_mode((width,height))
 screen = pg.display.set_mode((width,height))
 pg.display.set_caption('AmbatuShoot')
 
+#VIDEO
 video_path = '../Space Shooter Game/Video/SpaceBackground.mp4' 
 cap = cv2.VideoCapture(video_path)
+def restart_video(cap, video_path):
+    cap.release()
+    cap.open(video_path)
 
+
+#IMAGES
 background_image = pg.image.load('../Space Shooter Game/sprites/galaxybackground.jpg').convert()
 fuel = pg.image.load('../Space Shooter Game/sprites/fuel.png').convert_alpha()
 fuel = pg.transform.rotozoom( fuel,0,1.3)
 
+#FONT
 font = pg.font.Font('../Space Shooter Game/orbitron.ttf',50)
 
+#VARIABLES
 score_game = 0
-
 screen_shake = 0
-
-
-clock = pg.time.Clock()
-ship_group = pg.sprite.GroupSingle()
-ship = Ship(ship_group)
-laser_group = pg.sprite.Group()
-meteor_group = pg.sprite.Group()
-
 speed_meteor = 0
-
-score = Score()
-start_menu = Start_menu()
-end = End()
-
-
-meteor_timer = pg.event.custom_type()
-pg.time.set_timer(meteor_timer,200)
+clock = pg.time.Clock()
 
 Game_Menu = True
 Game = False
 Game_End = False
 mouse_pos = pg.mouse.get_pos()
 
+#INSTANCES
+
+all_sprites = LayeredUpdates()
+
+ship_group = pg.sprite.GroupSingle()
+ship = Ship(ship_group)
+all_sprites.add(ship, layer=2)
+
+laser_group = pg.sprite.Group()
+meteor_group = pg.sprite.Group()
+
+score = Score()
+start_menu = Start_menu()
+end = End()
+
+
+#CUSTOM EVENT
+meteor_timer = pg.event.custom_type()
+pg.time.set_timer(meteor_timer,200)
+
+#SFX AND SOUND
 click_sfx = pg.mixer.Sound('../Space Shooter Game/Sfx/click.wav')
 click_sfx.set_volume(0.7)
 
@@ -321,11 +337,6 @@ spacebackgroundmusic ='../Space Shooter Game/Sfx/spacebackgroundmusic.mp3'
 pg.mixer.music.load(spacebackgroundmusic)
 pg.mixer.music.play(-1)
 
-
-def restart_video(cap, video_path):
-    cap.release()
-    cap.open(video_path)
-
 while True:
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -335,6 +346,7 @@ while True:
                 meteor_y = randint(-100,-50)
                 meteor_x = randint(-100,width+100)
                 Meteor(meteor_group,(meteor_x,meteor_y),speed_meteor)
+                all_sprites.add(Meteor(meteor_group,(meteor_x,meteor_y),speed_meteor), layer=1)
     
     dt = clock.tick(144)/1000
 
@@ -365,12 +377,8 @@ while True:
     if Game and not Game_End and not Game_Menu:
         screen.blit(frame_surface, (0, 0))
 
-        laser_group.draw(screen)
-        laser_group.update()
-        meteor_group.draw(screen)
-        meteor_group.update()
-        ship_group.draw(screen)
-        ship_group.update()
+        all_sprites.update()
+        all_sprites.draw(screen)
 
         score.display_score()
 
@@ -381,6 +389,7 @@ while True:
 
     if Game_End and not Game_Menu and not Game:
         screen.blit(frame_surface, (0, 0))
+        
         end.display()
         mouse_pos = pg.mouse.get_pos()
         if pg.mouse.get_pressed()[0] and end.retry_rect.collidepoint(mouse_pos):
@@ -399,7 +408,9 @@ while True:
         render_offset[1] = randint(0,8) - 4
 
     org_screen.blit(screen, render_offset)
-    pg.display.update()
     clock.tick(144)
+
+    pg.display.update()
+
 
 cap.release()
